@@ -71,7 +71,7 @@ class CRM_Correctaddress_Upgrader extends CRM_Correctaddress_Upgrader_Base {
         if (strlen($address->street_unit)) {
           $housenumber = trim(str_replace($address->street_unit, '', $housenumber));
         }
-        if (!is_int($housenumber)) {
+        if (!is_numeric($housenumber)) {
           $housenumber = $address->street_number;
         }
         $info = civicrm_api3('PostcodeNL', 'get', array('postcode' => $address->postal_code, 'huisnummer' => $housenumber));
