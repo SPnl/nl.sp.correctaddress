@@ -47,50 +47,11 @@ class CRM_Correctaddress_Upgrader extends CRM_Correctaddress_Upgrader_Base {
   }
 
   public static function correct($startId, $endId) {
-    $address = CRM_Core_DAO::executeQuery("SELECT * FROM `civicrm_address` WHERE `country_id` = 1152 AND `id` BETWEEN %1 AND %2", array(1=>array($startId, 'Integer'), 2=>array($endId,'Integer')), true, 'CRM_Core_DAO_Address');
+    $address = CRM_Core_DAO::executeQuery("SELECT * FROM `civicrm_address` WHERE is_billing = 1 and street_address is NULL and city is null AND `id` BETWEEN %1 AND %2", array(1=>array($startId, 'Integer'), 2=>array($endId,'Integer')), true, 'CRM_Core_DAO_Address');
     while ($address->fetch()) {
-      self::correctAddress($address);
+      civicrm_api3('Address', 'delete', array('id' => $address->id));
     }
     return true;
-  }
-
-  protected static function correctAddress($address) {
-    $info = civicrm_api3('PostcodeNL', 'get', array('postcode' => $address->postal_code, 'huisnummer' => $address->street_number));
-    if (isset($info['values']) && is_array($info['values']) && count($info['values']) > 0) {
-      return; //aaddress is found in database
-    }
-
-    $sql = "SELECT * FROM `civicrm_postcodenl` WHERE `postcode_letter` = %2 AND `postcode_nr` = %1";
-    $postcode = preg_replace('/[^\da-z]/i', '', $address->postal_code);
-    $postcodeParams[1] = array(substr($postcode, 0, 4), 'String');
-    $postcodeParams[2] = array(substr($postcode, 4, 2), 'String');
-    $postcodeDao = CRM_Core_DAO::executeQuery($sql, $postcodeParams);
-    while($postcodeDao->fetch()) {
-      if (stripos($address->street_address, $postcodeDao->adres)===0 && $postcodeDao->adres != $address->street_name) {
-        $housenumber = trim(str_ireplace($postcodeDao->adres, '', $address->street_address));
-        if (strlen($address->street_unit)) {
-          $housenumber = trim(str_replace($address->street_unit, '', $housenumber));
-        }
-        if (!is_numeric($housenumber)) {
-          $housenumber = $address->street_number;
-        }
-        $info = civicrm_api3('PostcodeNL', 'get', array('postcode' => $address->postal_code, 'huisnummer' => $housenumber));
-        if (isset($info['values']) && is_array($info['values'])) {
-          $params = array();
-          $params['street_number'] = $housenumber;
-          $params['id'] = $address->id;
-          civicrm_api3('Address', 'create', $params);
-
-          $params = array();
-          CRM_Core_DAO::storeValues($address, $params);
-          $params['street_number'] = $housenumber;
-          CRM_Postcodenl_Updater::checkAddress($address->id, $params, true);
-
-          return; //aaddress is found in database
-        }
-      }
-    }
-
   }
 
   /**
